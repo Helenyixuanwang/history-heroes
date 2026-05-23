@@ -38,12 +38,15 @@ function getEmoji(description = "") {
   return "⭐";
 }
 
-const funFacts = [
-  "Did you know? Reading about real people is called Biography!",
-  "Every famous person was once a kid, just like you!",
-  "Learning history helps us make a better future!",
-  "Curiosity is the superpower of all great minds!",
-  "Today's birthday stars were born on this very day in history!",
+const FALLBACK_QUOTES = [
+  { content: "The more that you read, the more things you will know.", author: "Dr. Seuss" },
+  { content: "It always seems impossible until it's done.", author: "Nelson Mandela" },
+  { content: "Imagination is more important than knowledge.", author: "Albert Einstein" },
+  { content: "The only way to do great work is to love what you do.", author: "Steve Jobs" },
+  { content: "In the middle of every difficulty lies opportunity.", author: "Albert Einstein" },
+  { content: "I have a dream that one day this nation will rise up.", author: "Martin Luther King Jr." },
+  { content: "You must be the change you wish to see in the world.", author: "Mahatma Gandhi" },
+  { content: "The secret of getting ahead is getting started.", author: "Mark Twain" },
 ];
 
 function StarField() {
@@ -220,15 +223,38 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [bioData, setBioData] = useState(null);
   const [error, setError] = useState("");
-  const [factIdx, setFactIdx] = useState(0);
+  const [quote, setQuote] = useState(FALLBACK_QUOTES[0]);
+  const [quoteFading, setQuoteFading] = useState(false);
   const [featured, setFeatured] = useState([]);
   const [bdayLoading, setBdayLoading] = useState(true);
   const [todayLabel, setTodayLabel] = useState("");
 
-  // Rotate fun facts
+  // Fetch a real quote, rotate every 8s
   useEffect(() => {
-    const t = setInterval(() => setFactIdx((i) => (i + 1) % funFacts.length), 4000);
-    return () => clearInterval(t);
+    let cancelled = false;
+    const fetchQuote = async () => {
+      setQuoteFading(true);
+      setTimeout(async () => {
+        if (cancelled) return;
+        try {
+          const res = await fetch("https://api.quotable.io/random?tags=history|education|knowledge|wisdom&maxLength=120");
+          if (!res.ok) throw new Error();
+          const data = await res.json();
+          if (!cancelled) setQuote({ content: data.content, author: data.author });
+        } catch {
+          // fallback to random local quote
+          if (!cancelled) setQuote(q => {
+            const next = FALLBACK_QUOTES[(FALLBACK_QUOTES.indexOf(q) + 1) % FALLBACK_QUOTES.length];
+            return next;
+          });
+        } finally {
+          if (!cancelled) setQuoteFading(false);
+        }
+      }, 400);
+    };
+    fetchQuote();
+    const t = setInterval(fetchQuote, 30000);
+    return () => { cancelled = true; clearInterval(t); };
   }, []);
 
   // Load "On This Day" birthdays from Wikipedia
@@ -345,6 +371,7 @@ export default function App() {
         @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
         @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes spinEarth { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #1a1a3e; }
         ::-webkit-scrollbar-thumb { background: #a78bfa; border-radius: 3px; }
@@ -367,19 +394,24 @@ export default function App() {
             lineHeight: 1.1, letterSpacing: 1,
           }}>History Heroes</h1>
           <p style={{ color: "#a78bfa", fontSize: 16, marginTop: 6, fontWeight: 600 }}>
-            Discover amazing people who changed the world! 🌍
+            Discover amazing people who changed the world!{" "}<span style={{ display: "inline-block", animation: "spinEarth 4s linear infinite" }}>🌍</span>
           </p>
         </div>
 
-        {/* Fun Fact Ticker */}
+        {/* Quote Ticker */}
         <div style={{
           background: "linear-gradient(135deg, #fbbf2422, #f59e0b22)",
-          border: "2px solid #fbbf24", borderRadius: 50,
-          padding: "10px 20px", textAlign: "center",
+          border: "2px solid #fbbf24", borderRadius: 16,
+          padding: "12px 20px", textAlign: "center",
           maxWidth: 500, margin: "0 auto 24px",
+          opacity: quoteFading ? 0 : 1,
+          transition: "opacity 0.4s ease",
         }}>
-          <span style={{ fontSize: 15, color: "#fde68a", fontWeight: 700 }}>
-            💡 {funFacts[factIdx]}
+          <span style={{ fontSize: 14, color: "#fde68a", fontWeight: 700, fontStyle: "italic", display: "block" }}>
+            💡 "{quote.content}"
+          </span>
+          <span style={{ fontSize: 12, color: "#f59e0b", fontWeight: 600, marginTop: 4, display: "block" }}>
+            — {quote.author}
           </span>
         </div>
 
